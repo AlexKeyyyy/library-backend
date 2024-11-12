@@ -40,7 +40,7 @@ func GetBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllBooks(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.DB.Query("SELECT id, name FROM books")
+	rows, err := db.DB.Query("SELECT id, name, type_id FROM books")
 	if err != nil {
 		http.Error(w, "Error fetching books", http.StatusInternalServerError)
 		return
@@ -50,7 +50,7 @@ func GetAllBooks(w http.ResponseWriter, r *http.Request) {
 	var books []Book
 	for rows.Next() {
 		var book Book
-		err := rows.Scan(&book.ID, &book.Name)
+		err := rows.Scan(&book.ID, &book.Name, &book.TypeID)
 		if err != nil {
 			http.Error(w, "Error scanning books", http.StatusInternalServerError)
 			return

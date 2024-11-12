@@ -16,11 +16,11 @@ type JournalEntry struct {
 	DateBeg  string `json:"date_beg"`
 	DateEnd  string `json:"date_end"`
 	DateRet  string `json:"date_ret"`
-	Fine     int    `json:"fine"`
+	Fine     int    `json:"fine_today"`
 }
 
 func GetJournalEntries(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.DB.Query("SELECT id, book_id, client_id, date_beg, date_end, date_ret, fine FROM journal")
+	rows, err := db.DB.Query("SELECT id, book_id, client_id, date_beg, date_end, date_ret, fine_today FROM journal")
 	if err != nil {
 		http.Error(w, "Error fetching journal entries", http.StatusInternalServerError)
 		return
@@ -120,7 +120,7 @@ func ReturnBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Обновляем запись о возврате и фиксируем штраф
-	_, err = db.DB.Exec("UPDATE journal SET date_ret = $1, fine = $2 WHERE id = $3", dateRet.Time, totalFine, request.JournalID)
+	_, err = db.DB.Exec("UPDATE journal SET date_ret = $1, fine_today = $2 WHERE id = $3", dateRet.Time, totalFine, request.JournalID)
 	if err != nil {
 		http.Error(w, "Error updating return date", http.StatusInternalServerError)
 		return
@@ -148,7 +148,7 @@ func GetFine(w http.ResponseWriter, r *http.Request) {
 	// Логика для получения штрафа за просрочку
 	var fine int
 	query := `
-        SELECT fine
+        SELECT fine_today
         FROM journal j
         JOIN books b ON j.book_id = b.id
         JOIN book_types bt ON b.type_id = bt.id

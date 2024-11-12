@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"library-backend/db"
 	"net/http"
@@ -120,4 +121,27 @@ func DeleteBookType(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("Book type deleted successfully"))
+}
+
+// Обработчик для получения информации о типе книги по ID
+func GetBookType(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	typeID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid type ID", http.StatusBadRequest)
+		return
+	}
+
+	var bookType BookType
+	query := "SELECT id, type, fine, day_count FROM book_types WHERE id = $1"
+	err = db.DB.QueryRow(query, typeID).Scan(&bookType.ID, &bookType.Type, &bookType.Fine, &bookType.MaxDays)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Book type not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Error fetching book type", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(bookType)
 }

@@ -40,6 +40,7 @@ func main() {
 	r.HandleFunc("/book_types", handlers.AddBookType).Methods("POST")
 	r.HandleFunc("/book_types/{id}", handlers.UpdateBookType).Methods("PUT")
 	r.HandleFunc("/book_types/{id}", handlers.DeleteBookType).Methods("DELETE")
+	r.HandleFunc("/book_types/{id}", handlers.GetBookType).Methods("GET")
 
 	// Маршруты для журнала
 	r.HandleFunc("/journal/issue", handlers.IssueBook).Methods("POST")   // Выдача книги
