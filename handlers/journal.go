@@ -10,17 +10,21 @@ import (
 )
 
 type JournalEntry struct {
-	ID       int    `json:"id"`
-	BookID   int    `json:"book_id"`
-	ClientID int    `json:"client_id"`
-	DateBeg  string `json:"date_beg"`
-	DateEnd  string `json:"date_end"`
-	DateRet  string `json:"date_ret"`
-	Fine     int    `json:"fine_today"`
+	ID         int    `json:"id"`
+	BookID     int    `json:"book_id"`
+	ClientID   int    `json:"client_id"`
+	DateBeg    string `json:"date_beg"`
+	DateEnd    string `json:"date_end"`
+	DateRet    string `json:"date_ret"`
+	Fine       int    `json:"fine_today"`
+	FinePerDay int    `json:"fine_per_day"`
 }
 
 func GetJournalEntries(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.DB.Query("SELECT id, book_id, client_id, date_beg, date_end, date_ret, fine_today FROM journal")
+	rows, err := db.DB.Query(`SELECT j.id, j.book_id, j.client_id, j.date_beg, j.date_end, j.date_ret, j.fine_today, bt.fine AS fine_per_day 
+								FROM journal j
+								JOIN books b on j.book_id = b.id
+								JOIN book_types bt ON b.type_id = bt.id`)
 	if err != nil {
 		http.Error(w, "Error fetching journal entries", http.StatusInternalServerError)
 		return
@@ -31,7 +35,7 @@ func GetJournalEntries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var entry JournalEntry
 		var dateRet sql.NullString
-		err := rows.Scan(&entry.ID, &entry.BookID, &entry.ClientID, &entry.DateBeg, &entry.DateEnd, &dateRet, &entry.Fine)
+		err := rows.Scan(&entry.ID, &entry.BookID, &entry.ClientID, &entry.DateBeg, &entry.DateEnd, &dateRet, &entry.Fine, &entry.FinePerDay)
 		if err != nil {
 			http.Error(w, "Error scanning journal entry", http.StatusInternalServerError)
 			return
@@ -71,6 +75,30 @@ func IssueBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверка доступного количества книг
+	var availableCnt int
+	err = db.DB.QueryRow("SELECT cnt FROM books WHERE id = $1", request.BookID).Scan(&availableCnt)
+	if err != nil {
+		log.Println("Ошибка получения количества книг:", err)
+		http.Error(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	if availableCnt <= 0 {
+		log.Println("Книг нет в наличии")
+		http.Error(w, "No books available for issuing", http.StatusBadRequest)
+		return
+	}
+
+	// Уменьшаем количество книг
+	_, err = db.DB.Exec("UPDATE books SET cnt = cnt - 1 WHERE id = $1", request.BookID)
+	if err != nil {
+		log.Println("Ошибка обновления количества книг:", err)
+		http.Error(w, "Error updating book count", http.StatusInternalServerError)
+		return
+	}
+
+	// Добавляем запись в журнал
 	query := "INSERT INTO journal (book_id, client_id, date_beg, date_end) VALUES ($1, $2, $3, $4)"
 	_, err = db.DB.Exec(query, request.BookID, request.ClientID, time.Now(), dateEnd)
 	if err != nil {
@@ -97,14 +125,14 @@ func ReturnBook(w http.ResponseWriter, r *http.Request) {
 
 	// Получаем информацию о книге и дате возврата
 	var dateEnd, dateRet sql.NullTime
-	var finePerDay int
+	var finePerDay, bookID int
 	query := `
-        SELECT j.date_end, bt.fine
+        SELECT j.date_end, bt.fine, j.book_id
         FROM journal j
         JOIN books b ON j.book_id = b.id
-		JOIN book_types bt ON b.type_id = bt.id
+        JOIN book_types bt ON b.type_id = bt.id
         WHERE j.id = $1`
-	err = db.DB.QueryRow(query, request.JournalID).Scan(&dateEnd, &finePerDay)
+	err = db.DB.QueryRow(query, request.JournalID).Scan(&dateEnd, &finePerDay, &bookID)
 	if err != nil {
 		http.Error(w, "Journal entry not found", http.StatusNotFound)
 		return
@@ -126,7 +154,15 @@ func ReturnBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Возвращаем итоговый штраф (если требуется)
+	// Увеличиваем количество книг
+	_, err = db.DB.Exec("UPDATE books SET cnt = cnt + 1 WHERE id = $1", bookID)
+	if err != nil {
+		log.Println("Ошибка увеличения количества книг:", err)
+		http.Error(w, "Error updating book count", http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем итоговый штраф
 	response := struct {
 		Fine int `json:"fine"`
 	}{
