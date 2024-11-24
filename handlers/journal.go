@@ -44,8 +44,8 @@ func GetJournalEntries(w http.ResponseWriter, r *http.Request) {
 		// Преобразуем dateRet в строку
 		if dateRet.Valid {
 			entry.DateRet = dateRet.String
-		} else {
-			entry.DateRet = "Не возвращена" // Устанавливаем строку, если значение не валидно
+			// } else {
+			// 	entry.DateRet = "Не возвращена" // Устанавливаем строку, если значение не валидно
 		}
 		entries = append(entries, entry)
 	}
@@ -72,6 +72,20 @@ func IssueBook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Ошибка преобразования даты:", err)
 		http.Error(w, "Invalid date format. Use YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	var booksOnHand int
+	err = db.DB.QueryRow("SELECT COUNT(*) FROM journal WHERE client_id = $1 AND date_ret IS NULL", request.ClientID).Scan(&booksOnHand)
+	if err != nil {
+		log.Println("Ошибка получения количества книг у клиента:", err)
+		http.Error(w, "Error checking client's books", http.StatusInternalServerError)
+		return
+	}
+
+	if booksOnHand >= 10 {
+		log.Println("Клиент уже имеет 10 книг на руках")
+		http.Error(w, "Client cannot have more than 10 books", http.StatusBadRequest)
 		return
 	}
 

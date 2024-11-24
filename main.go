@@ -19,7 +19,8 @@ func main() {
 	r := mux.NewRouter()
 
 	// Определение маршрутов
-	r.HandleFunc("/login", handlers.Login).Methods("POST")
+	r.HandleFunc("/login", handlers.LoginLibrarian).Methods("POST")
+	r.HandleFunc("/register", handlers.RegisterLibrarian).Methods("POST")
 	r.HandleFunc("/clients", handlers.GetClients).Methods("GET")
 	r.HandleFunc("/clients", handlers.AddClient).Methods("POST")
 	r.HandleFunc("/clients/{id}", handlers.UpdateClient).Methods("PUT")
@@ -47,6 +48,9 @@ func main() {
 	r.HandleFunc("/journal/return", handlers.ReturnBook).Methods("POST") // Прием книги
 	r.HandleFunc("/journal", handlers.GetJournalEntries).Methods("GET")  // Получение записей журнала
 	r.HandleFunc("/journal/fine", handlers.GetFine).Methods("POST")
+
+	r.HandleFunc("/reports/top-books", handlers.GetTopBooks).Methods("GET")
+	r.HandleFunc("/reports/top-clients-fines", handlers.GetTopClientsWithFines).Methods("GET")
 
 	// Добавление CORS
 	c := cors.New(cors.Options{
