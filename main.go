@@ -51,6 +51,8 @@ func main() {
 
 	r.HandleFunc("/reports/top-books", handlers.GetTopBooks).Methods("GET")
 	r.HandleFunc("/reports/top-clients-fines", handlers.GetTopClientsWithFines).Methods("GET")
+	r.HandleFunc("/reports/books-on-hand", handlers.GetBooksOnHand).Methods("POST")
+	r.HandleFunc("/reports/client-fine", handlers.GetClientFine).Methods("POST")
 
 	// Добавление CORS
 	c := cors.New(cors.Options{

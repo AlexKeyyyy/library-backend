@@ -82,3 +82,62 @@ func GetTopClientsWithFines(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(clients)
 }
+
+func GetBooksOnHand(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ClientID int `json:"client_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	var count int
+	query := `
+		   SELECT COUNT(*)
+		   FROM journal
+		   WHERE client_id = $1 AND date_ret IS NULL`
+	err := db.DB.QueryRow(query, req.ClientID).Scan(&count)
+	if err != nil {
+		http.Error(w, "Error fetching books on hand", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(struct {
+		ClientID    int `json:"client_id"`
+		BooksOnHand int `json:"books_on_hand"`
+	}{
+		ClientID:    req.ClientID,
+		BooksOnHand: count,
+	})
+}
+func GetClientFine(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ClientID int `json:"client_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	var totalFine int
+	query := `
+		   SELECT SUM(fine_today)
+		   FROM journal
+		   WHERE client_id = $1`
+	err := db.DB.QueryRow(query, req.ClientID).Scan(&totalFine)
+	if err != nil {
+		http.Error(w, "Error fetching client fine", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(struct {
+		ClientID  int `json:"client_id"`
+		TotalFine int `json:"total_fine"`
+	}{
+		ClientID:  req.ClientID,
+		TotalFine: totalFine,
+	})
+}
